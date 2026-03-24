@@ -123,7 +123,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             tmp_path = tmp.name
 
         # Convert in thread (CPU-bound)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         md_content = await loop.run_in_executor(
             None, lambda: get_converter().convert(tmp_path).document.export_to_markdown()
         )
@@ -166,7 +166,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     status = await update.message.reply_text(f"⏳ Convertendo URL...")
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         md_content = await loop.run_in_executor(
             None, lambda: get_converter().convert(text).document.export_to_markdown()
         )
