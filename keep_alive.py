@@ -35,10 +35,15 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def start_keep_alive() -> None:
-    """Inicia o servidor HTTP em uma thread daemon."""
+    """Inicia o servidor HTTP em uma thread background (não-daemon)."""
     port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), _Handler)
+    try:
+        server = HTTPServer(("0.0.0.0", port), _Handler)
+    except OSError as e:
+        logger.error("Falha ao abrir porta %d: %s", port, e)
+        raise
 
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    # Não-daemon: continua rodando mesmo após main() terminar
+    thread = threading.Thread(target=server.serve_forever, daemon=False)
     thread.start()
-    logger.info("Keep-alive server rodando na porta %d", port)
+    logger.info("Keep-alive server rodando em 0.0.0.0:%d", port)
