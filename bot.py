@@ -67,6 +67,40 @@ async def deny(update: Update) -> None:
     await update.message.reply_text("⛔ Acesso não autorizado.")
 
 
+# ── Conversion helper ─────────────────────────────────────────────────────────
+async def _convert_and_send(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    source: str,
+    stem: str,
+    status_msg,
+) -> None:
+    """Converte `source` (path ou URL) para Markdown e envia ao chat."""
+    try:
+        loop = asyncio.get_running_loop()
+        md_content = await loop.run_in_executor(
+            None,
+            lambda: get_converter().convert(source).document.export_to_markdown(),
+        )
+
+        md_bytes = md_content.encode("utf-8")
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=md_bytes,
+            filename=f"{stem}.md",
+            caption=f"✅ `{stem}.md`\n_{len(md_content):,} caracteres_",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await status_msg.delete()
+
+    except Exception as e:
+        logger.exception("Erro ao converter %s", source)
+        await status_msg.edit_text(
+            f"❌ Erro ao converter:\n`{str(e)[:300]}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+
 # ── Handlers ──────────────────────────────────────────────────────────────────
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed(update):
@@ -106,49 +140,33 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if suffix not in SUPPORTED_EXTENSIONS:
         await update.message.reply_text(
-            f"❌ Formato `{suffix}` não suportado.\n\n"
-            f"{SUPPORTED_LIST}",
+            f"❌ Formato `{suffix}` não suportado.\n\n{SUPPORTED_LIST}",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
 
+    if doc.file_size and doc.file_size > 20 * 1024 * 1024:  # 20 MB
+        await update.message.reply_text("❌ Arquivo muito grande. Limite: 20 MB.")
+        return
+
     status = await update.message.reply_text("⏳ Convertendo...")
+    tg_file = await context.bot.get_file(doc.file_id)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp_path = tmp.name
 
     try:
-        # Download to temp file
-        tg_file = await context.bot.get_file(doc.file_id)
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            await tg_file.download_to_drive(tmp.name)
-            tmp_path = tmp.name
-
-        try:
-            # Convert in thread (CPU-bound)
-            loop = asyncio.get_running_loop()
-            md_content = await loop.run_in_executor(
-                None, lambda: get_converter().convert(tmp_path).document.export_to_markdown()
-            )
-        finally:
-            # Ensure temp file is always cleaned up, even on exception
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-
-        # Send .md file
-        stem = Path(file_name).stem
-        md_bytes = md_content.encode("utf-8")
-
-        await context.bot.send_document(
-            chat_id=update.effective_chat.id,
-            document=md_bytes,
-            filename=f"{stem}.md",
-            caption=f"✅ `{file_name}` → `{stem}.md`\n_{len(md_content):,} caracteres_",
-            parse_mode=ParseMode.MARKDOWN,
+        await tg_file.download_to_drive(tmp_path)
+        await _convert_and_send(
+            update=update,
+            context=context,
+            source=tmp_path,
+            stem=Path(file_name).stem,
+            status_msg=status,
         )
-        await status.delete()
-
-    except Exception as e:
-        logger.exception("Erro ao converter arquivo %s", file_name)
-        await status.edit_text(f"❌ Erro ao converter `{file_name}`:\n`{str(e)[:300]}`", parse_mode=ParseMode.MARKDOWN)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

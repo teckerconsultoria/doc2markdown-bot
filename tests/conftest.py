@@ -20,3 +20,12 @@ def mock_context():
     context.bot.get_file = AsyncMock()
     context.bot.send_document = AsyncMock()
     return context
+
+
+@pytest.fixture
+def mock_status_message():
+    """Mock para mensagem de status durante conversão."""
+    msg = MagicMock()
+    msg.edit_text = AsyncMock()
+    msg.delete = AsyncMock()
+    return msg

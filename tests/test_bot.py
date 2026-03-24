@@ -56,6 +56,7 @@ async def test_temp_file_cleaned_up_on_converter_error():
         mock_doc = MagicMock(spec=Document)
         mock_doc.file_id = "test_file_id"
         mock_doc.file_name = "test.pdf"
+        mock_doc.file_size = 1024  # abaixo do limite de 20 MB
 
         mock_message = MagicMock(spec=Message)
         mock_message.document = mock_doc
@@ -81,3 +82,47 @@ async def test_temp_file_cleaned_up_on_converter_error():
         # Verificar que todos os temp files criados foram deletados
         for path in created_files:
             assert not os.path.exists(path), f"Temp file {path} não foi deletado após exceção"
+
+
+@pytest.mark.asyncio
+async def test_convert_and_send_sends_document(mock_update, mock_context):
+    """_convert_and_send deve chamar send_document com o conteúdo correto."""
+    from bot import _convert_and_send
+
+    with patch("bot.get_converter") as mock_conv:
+        mock_conv.return_value.convert.return_value.document.export_to_markdown.return_value = (
+            "# Hello"
+        )
+        await _convert_and_send(
+            update=mock_update,
+            context=mock_context,
+            source="/tmp/fake.pdf",
+            stem="fake",
+            status_msg=AsyncMock(),
+        )
+
+    mock_context.bot.send_document.assert_called_once()
+    call_kwargs = mock_context.bot.send_document.call_args.kwargs
+    assert call_kwargs["filename"] == "fake.md"
+
+
+@pytest.mark.asyncio
+async def test_convert_and_send_edits_status_on_error(mock_update, mock_context):
+    """_convert_and_send deve editar a mensagem de status em caso de erro."""
+    from bot import _convert_and_send
+
+    status_msg = AsyncMock()
+    status_msg.edit_text = AsyncMock()
+
+    with patch("bot.get_converter") as mock_conv:
+        mock_conv.return_value.convert.side_effect = RuntimeError("falhou")
+        await _convert_and_send(
+            update=mock_update,
+            context=mock_context,
+            source="/tmp/fake.pdf",
+            stem="fake",
+            status_msg=status_msg,
+        )
+
+    status_msg.edit_text.assert_called_once()
+    assert "Erro" in status_msg.edit_text.call_args.args[0]
