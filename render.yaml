@@ -1,5 +1,5 @@
 services:
-  - type: background_worker
+  - type: web
     name: doc2markdown-bot
     runtime: python
     buildCommand: pip install -r requirements.txt
