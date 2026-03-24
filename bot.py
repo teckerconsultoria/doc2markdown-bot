@@ -3,6 +3,7 @@ import logging
 import tempfile
 import asyncio
 from pathlib import Path
+from urllib.parse import urlparse
 
 from telegram import Update, Document
 from telegram.ext import (
@@ -101,6 +102,13 @@ async def _convert_and_send(
         )
 
 
+def _stem_from_url(url: str) -> str:
+    """Deriva um nome de arquivo stem a partir de uma URL."""
+    path = urlparse(url).path.rstrip("/")
+    stem = Path(path).stem if path else "document"
+    return (stem or "document")[:60]
+
+
 # ── Handlers ──────────────────────────────────────────────────────────────────
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed(update):
@@ -184,36 +192,9 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         )
         return
 
-    status = await update.message.reply_text(f"⏳ Convertendo URL...")
-
-    try:
-        loop = asyncio.get_running_loop()
-        md_content = await loop.run_in_executor(
-            None, lambda: get_converter().convert(text).document.export_to_markdown()
-        )
-
-        # Derive filename from URL
-        url_path = text.rstrip("/").split("/")[-1].split("?")[0]
-        stem = (
-            url_path.replace(".pdf", "").replace(".html", "").replace(".htm", "")
-            or "document"
-        )
-        stem = stem[:60]  # truncate
-
-        md_bytes = md_content.encode("utf-8")
-
-        await context.bot.send_document(
-            chat_id=update.effective_chat.id,
-            document=md_bytes,
-            filename=f"{stem}.md",
-            caption=f"✅ URL convertida → `{stem}.md`\n_{len(md_content):,} caracteres_",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        await status.delete()
-
-    except Exception as e:
-        logger.exception("Erro ao converter URL %s", text)
-        await status.edit_text(f"❌ Erro ao converter URL:\n`{str(e)[:300]}`", parse_mode=ParseMode.MARKDOWN)
+    status = await update.message.reply_text("⏳ Convertendo URL...")
+    stem = _stem_from_url(text)
+    await _convert_and_send(update=update, context=context, source=text, stem=stem, status_msg=status)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

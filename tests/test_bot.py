@@ -126,3 +126,26 @@ async def test_convert_and_send_edits_status_on_error(mock_update, mock_context)
 
     status_msg.edit_text.assert_called_once()
     assert "Erro" in status_msg.edit_text.call_args.args[0]
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("https://example.com/report.pdf", "report"),
+    ("https://example.com/page.html", "page"),
+    ("https://example.com/path/to/doc.docx", "doc"),
+    ("https://example.com/", "document"),
+    ("https://example.com/no-extension", "no-extension"),
+    ("https://example.com/file.pdf?token=abc", "file"),
+    # Path sem extensão: Path.stem == Path.name, então "a"*100 → truncado em 60
+    ("https://example.com/" + "a" * 100, "a" * 60),
+])
+def test_stem_from_url(url, expected):
+    import sys
+    from unittest.mock import MagicMock
+
+    # Mock docling before importing bot
+    sys.modules['docling'] = MagicMock()
+    sys.modules['docling.document_converter'] = MagicMock()
+
+    with patch.dict(os.environ, {"BOT_TOKEN": "fake_token"}):
+        from bot import _stem_from_url
+        assert _stem_from_url(url) == expected
