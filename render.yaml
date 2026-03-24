@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: doc2markdown-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    plan: free
+    envVars:
+      - key: BOT_TOKEN
+        sync: false          # definido manualmente no dashboard do Render
+      - key: ALLOWED_CHAT_IDS
+        sync: false          # seu chat_id do Telegram (ex: 123456789)
+      - key: PYTHON_VERSION
+        value: 3.11.0
