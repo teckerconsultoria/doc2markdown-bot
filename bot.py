@@ -199,7 +199,6 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main() -> None:
-    # Start keep-alive server in background thread
     from keep_alive import start_keep_alive
     start_keep_alive()
 
