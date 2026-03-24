@@ -1,6 +1,5 @@
 docling
 python-telegram-bot==20.*
-flask>=3.0.0
 pytest
 pytest-asyncio
 pytest-mock

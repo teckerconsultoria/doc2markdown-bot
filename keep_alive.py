@@ -1,38 +1,44 @@
 """
 Keep-alive HTTP server para evitar que o Render free tier durma o serviço.
 
-O Render hiberna instâncias free após 15 min de inatividade.
-Este módulo sobe um servidor Flask mínimo na porta $PORT que responde
-a pings externos (ex: UptimeRobot a cada 5 min).
+Usa apenas a stdlib (http.server) — sem dependência de Flask.
 """
 
+import json
 import os
 import threading
 import logging
-from flask import Flask
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
 
+class _Handler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):  # silencia logs de acesso
+        pass
 
-@app.route("/")
-def index():
-    return "Doc2Markdown Bot — online ✅", 200
-
-
-@app.route("/health")
-def health():
-    return {"status": "ok"}, 200
+    def do_GET(self):
+        if self.path == "/health":
+            body = json.dumps({"status": "ok"}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            body = b"Doc2Markdown Bot \xe2\x80\x94 online \xe2\x9c\x85"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
 
 def start_keep_alive() -> None:
-    """Inicia o servidor Flask em uma thread daemon."""
+    """Inicia o servidor HTTP em uma thread daemon."""
     port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), _Handler)
 
-    def run():
-        logger.info("Keep-alive server rodando na porta %d", port)
-        app.run(host="0.0.0.0", port=port, use_reloader=False)
-
-    thread = threading.Thread(target=run, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
+    logger.info("Keep-alive server rodando na porta %d", port)

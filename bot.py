@@ -122,13 +122,16 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await tg_file.download_to_drive(tmp.name)
             tmp_path = tmp.name
 
-        # Convert in thread (CPU-bound)
-        loop = asyncio.get_running_loop()
-        md_content = await loop.run_in_executor(
-            None, lambda: get_converter().convert(tmp_path).document.export_to_markdown()
-        )
-
-        os.unlink(tmp_path)
+        try:
+            # Convert in thread (CPU-bound)
+            loop = asyncio.get_running_loop()
+            md_content = await loop.run_in_executor(
+                None, lambda: get_converter().convert(tmp_path).document.export_to_markdown()
+            )
+        finally:
+            # Ensure temp file is always cleaned up, even on exception
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
         # Send .md file
         stem = Path(file_name).stem
