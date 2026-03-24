@@ -199,8 +199,8 @@ Usuário (Telegram)
   arquivo .md  ──────────────────► Usuário (Telegram)
 
 
-  Flask /health  ◄──── ping a cada 5min (UptimeRobot)
-  (keep-alive)          evita hibernação do Render
+  http.server /health  ◄──── ping a cada 5min (UptimeRobot)
+  (keep-alive)               evita hibernação do Render
 ```
 
 ---
