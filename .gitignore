@@ -73,3 +73,7 @@ temp/
 # Claude Code
 .claude/
 CLAUDE.md
+
+# Pip cache e wheels (arquivos temporários)
+pip-*/
+*.whl
