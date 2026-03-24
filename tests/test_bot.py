@@ -85,7 +85,7 @@ async def test_temp_file_cleaned_up_on_converter_error():
 
 
 @pytest.mark.asyncio
-async def test_convert_and_send_sends_document(mock_update, mock_context):
+async def test_convert_and_send_sends_document(mock_update, mock_context, mock_status_message):
     """_convert_and_send deve chamar send_document com o conteúdo correto."""
     from bot import _convert_and_send
 
@@ -98,7 +98,7 @@ async def test_convert_and_send_sends_document(mock_update, mock_context):
             context=mock_context,
             source="/tmp/fake.pdf",
             stem="fake",
-            status_msg=AsyncMock(),
+            status_msg=mock_status_message,
         )
 
     mock_context.bot.send_document.assert_called_once()
@@ -107,12 +107,9 @@ async def test_convert_and_send_sends_document(mock_update, mock_context):
 
 
 @pytest.mark.asyncio
-async def test_convert_and_send_edits_status_on_error(mock_update, mock_context):
+async def test_convert_and_send_edits_status_on_error(mock_update, mock_context, mock_status_message):
     """_convert_and_send deve editar a mensagem de status em caso de erro."""
     from bot import _convert_and_send
-
-    status_msg = AsyncMock()
-    status_msg.edit_text = AsyncMock()
 
     with patch("bot.get_converter") as mock_conv:
         mock_conv.return_value.convert.side_effect = RuntimeError("falhou")
@@ -121,11 +118,11 @@ async def test_convert_and_send_edits_status_on_error(mock_update, mock_context)
             context=mock_context,
             source="/tmp/fake.pdf",
             stem="fake",
-            status_msg=status_msg,
+            status_msg=mock_status_message,
         )
 
-    status_msg.edit_text.assert_called_once()
-    assert "Erro" in status_msg.edit_text.call_args.args[0]
+    mock_status_message.edit_text.assert_called_once()
+    assert "Erro" in mock_status_message.edit_text.call_args.args[0]
 
 
 @pytest.mark.parametrize("url,expected", [
